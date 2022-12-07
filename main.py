@@ -137,19 +137,3 @@ solution = {}
 for i in mdl.getVars():
     if i.x > 0 or i.x < 0:
         print (i)
-
-# for i,j,k,m,t in pairs:
-#     capacity = mdl.getVarByName('y[{},{},{},{},{}]'.format(i,j,k,m,t)).x
-#     if capacity > 0.0:
-#         solution[(k,m)] = "Type: {}, ID: {}, Path : ({},{}), Load: {}, Departure {}, Arrival {}".format(k,m,i,j,capacity,t,t+TT[(i,j)])
-#         print(solution[(k,m)])
-
-# for k in K:
-#     for m in range(1,M[k]+1):
-#         path=[]
-#         for i in V:
-#             for j in V:
-#                 if mdl.getVarByName('x[{},{},{},{}]'.format(i,j,k,m)).x >= 0.98:
-#                     path.append((i,j))
-#
-#         print(" Type {}, Vehicle {}, Path, {}".format(k, m, path))
