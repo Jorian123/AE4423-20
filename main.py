@@ -141,6 +141,25 @@ mdl.optimize()
 solution = {}
 
 # Print all non-zero variables
-for i in mdl.getVars():
-    if i.x > 0 or i.x < 0:
-        print (i)
+# for i in mdl.getVars():
+#     if i.x > 0 or i.x < 0:
+#         print(i.Varname)
+#         print (i.x)
+
+Aircraftflowresult = np.zeros((15,15), dtype=tuple)
+
+for i,j,p in Aircraftflow:
+
+    for k in K:
+        if k == 1:
+            a = mdl.getVarByName("Aircraftflow[{},{},{}]".format(i,j,k)).x
+        if k == 2:
+            b = mdl.getVarByName("Aircraftflow[{},{},{}]".format(i,j,k)).x
+        if k == 3:
+            c = mdl.getVarByName("Aircraftflow[{},{},{}]".format(i,j,k)).x
+    value = int(a),int(b),int(c)
+    Aircraftflowresult[i,j]= value
+print(Aircraftflowresult)
+pd.DataFrame(Aircraftflowresult).to_csv('sample.csv')
+
+
