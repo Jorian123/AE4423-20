@@ -4,21 +4,21 @@ from gurobipy import*
 mdl = Model("VRP")
 
 '''Sets and parameters'''
-K = [1,2,3]                     # Types of aircraft
-V = {1:550,2:820,3:850}         # Speed of the aircraft [km/h]
-C = {1:45,2:70,3:150}           # Number of seats
-R = {1:1500,2:3300,3:6300}      # Range [km]
-L = {1:1400,2:1600,3:1800}      # Runway length required [m]
-LC = {1:15000,2:34000,3:80000}  # Lease cost per week
-FC = {1:300,2:600,3:1250}       # Fixed cost
-TC = {1:750,2:775,3:1400}       # Time cost
-KC = {1:1,2:2,3:3.75}           # Fuel cost
-TAT = {1:25,2:35,3:45}          # Turnaround time [min]
-TATmult = [1.5,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-Re = 6371                       # Earth radius [km]
-g = [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1] # 0 for hub airport
-LF = 0.8                        # Average load Factor
-BT = 70
+K = [1,2,3]                                     # Types of aircraft
+V = {1:550,2:820,3:850}                         # Speed of the aircraft [km/h]
+C = {1:45,2:70,3:150}                           # Number of seats
+R = {1:1500,2:3300,3:6300}                      # Range [km]
+L = {1:1400,2:1600,3:1800}                      # Runway length required [m]
+LC = {1:15000,2:34000,3:80000}                  # Lease cost per week
+FC = {1:300,2:600,3:1250}                       # Fixed cost
+TC = {1:750,2:775,3:1400}                       # Time cost
+KC = {1:1,2:2,3:3.75}                           # Fuel cost
+TAT = {1:25,2:35,3:45}                          # Turnaround time [min]
+TATmult = [1.5,1,1,1,1,1,1,1,1,1,1,1,1,1,1]     # Turn around time multiplier. 1.5 for the hub airports.
+Re = 6371                                       # Earth radius [km]
+g = [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1]             # 0 for hub airport
+LF = 0.8                                        # Average load Factor
+BT = 70                                         # Block Time
 Airports = ['Lira','LIRQ','LICJ','LIPZ','LIMF','LIBD','LIPX','LIEO','LICA','LICC','LIPE','LIMJ','LIRN','LIPY','LIPQ']
 Runway_length = [2208,1750,3326,3300,3300,3068,2745,2745,2414,2435,2800,3066,2012,2962,3000]
 Latitudes = [41.802425,43.808653,38.1824,45.5032,45.2004992,41.1366,45.395699,40.916668,38.906585,37.4673,44.535442,44.414165,40.884,43.616943,45.823]
@@ -58,6 +58,13 @@ def greatcircle(airport1,airport2):
     return distance
 
 def route_cost(airport1,airport2,aircraft_type):
+    """
+    Calculate the cost of a route, including the fixed cost, the time cost and the fuel cost.
+    :param airport1: The departure airport.
+    :param airport2: The arrival airport.
+    :param aircraft_type: The type of aircraft used to fly the route.
+    :return: The total cost for the route between the two airports.
+    """
     fixed_cost = FC[aircraft_type]
     time_cost = TC[aircraft_type]*greatcircle(airport1,airport2)/V[aircraft_type]
     fuel_cost = KC[aircraft_type]*1.42/1.5*greatcircle(airport1,airport2)
@@ -86,17 +93,17 @@ mdl.modelSense = GRB.MAXIMIZE
 
 
 # '''Constraints'''
-# All flow from each airport leave the airport, either through a hub or not
+# All flow from each airport leaves the airport, either through a hub or directly to another airport.
 mdl.addConstrs(x[i,j]+w[i,j] <= demand[i][j] for i in range(0,Airport_number) for j in range(0,Airport_number) if i != j)
 # There are only transfer passengers if neither of the two airports is the hub-airport.
 mdl.addConstrs(w[i,j] <= demand[i][j]*g[i]*g[j] for i in range(0,Airport_number) for j in range(0,Airport_number) if i != j)
-# Capacity verification in each flight leg
+# Capacity verification in each flight leg.
 mdl.addConstrs(x[i,j]+quicksum(w[i,m]*(1-g[j]) for m in range(0,Airport_number) if i!=m) + quicksum(w[m,j]*(1-g[i]) for m in range(0,Airport_number) if j!=m) <= quicksum(y[i,j,k]*C[k]*LF for k in K) for i in range(0,Airport_number) for j in range(0,Airport_number) if i != j)
-# Balance between incoming and outgoing flight
+# Balance between incoming and outgoing flight for each airport and aircraft.
 mdl.addConstrs(y[i,j,k] == y[j,i,k] for i in range(0,Airport_number) for j in range(0,Airport_number) if i != j for k in K)
-# Limit aircraft usage
+# Limit aircraft usage to the assigned block time.
 mdl.addConstrs(quicksum((greatcircle(i,j)/V[k]+TAT[k]*TATmult[i]*TATmult[j]/60)*y[i,j,k] for i in range(0,Airport_number) for j in range(0,Airport_number) if i != j) <= BT*z[k] for k in K)
-# Ensure the aircraft has the range to fly the route
+# Ensure the aircraft has the range to fly the route.
 for i in range(0,Airport_number):
     for j in range(0,Airport_number):
         if i!=j:
@@ -106,7 +113,7 @@ for i in range(0,Airport_number):
                 else:
                     a = 0
                 mdl.addConstr(y[i,j,k] <= a)
-# Minimum required runway length
+# Minimum required runway length for the aircraft type used on the route.
 for i in range(0,Airport_number):
     for j in range(0,Airport_number):
         if i!=j:
@@ -120,12 +127,6 @@ for i in range(0,Airport_number):
 '''Objective Function'''
 
 mdl.setObjective(quicksum(yields(i,j)*greatcircle(i,j)*(x[i,j]+0.9*w[i,j])-quicksum(route_cost(i,j,k)*y[i,j,k] for k in K) for i in range(0,Airport_number) for j in range(0,Airport_number) if i!=j)-quicksum(z[k]*LC[k] for k in K))
-
-# Flight departing or arriving at the hub have 30% lower cost
-# Yield on connecting flights is 10% less
-# Average load factor is not higher than 80%
-# Aircraft can be used 10 hours per day
-# TAT for flight to the hub are 50% longer
 
 '''Solve'''
 mdl.write("myLP.lp")
