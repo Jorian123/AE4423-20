@@ -77,10 +77,14 @@ def yields(airport1,airport2):
     money = 5.9*greatcircle(airport1,airport2)**(-0.76)+0.043
     return money
 
-'''Decision Variable'''
+'''Decision Variables'''
+# Flow between airports via the hub in number of passengers
 Hubflow = [(i,j) for i in range(0,Airport_number) for j in range(0,Airport_number) if i != j]
+# Flow between airports in number of passengers
 Directflow = [(i,j) for i in range(0,Airport_number) for j in range(0,Airport_number) if i != j]
+# Flow between airports in number of flights
 Aircraftflow = [(i,j,k) for i in range(0,Airport_number) for j in range(0,Airport_number) if i != j for k in range(1,len(K)+1)]
+# Total amount of aircraft between all types
 Aircraft_number = [i for i in range (1,len(K)+1)]
 
 
@@ -135,6 +139,7 @@ mdl.Params.TimeLimit = 30  # seconds
 mdl.optimize()
 solution = {}
 
+# Print all non-zero variables
 for i in mdl.getVars():
     if i.x > 0 or i.x < 0:
         print (i)
