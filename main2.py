@@ -265,9 +265,9 @@ Travel_cost = quicksum(total_route_cost(route_set[r],k)*z[r,k] for k in K for r 
 mdl.setObjective(Revenue-Lease_cost-Travel_cost)
 
 '''Solve'''
-mdl.write("myLP2.lp")
-mdl.Params.MIPGap = 0.1
-mdl.Params.TimeLimit = 1500  # seconds
+# mdl.write("myLP2.lp")
+mdl.Params.MIPGap = 0.01
+mdl.Params.TimeLimit = 1500 # seconds
 mdl.optimize()
 mdl.write("MyS2.JSON")
 solution = {}
