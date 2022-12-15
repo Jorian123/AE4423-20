@@ -99,7 +99,7 @@ mdl.modelSense = GRB.MAXIMIZE
 
 # '''Constraints'''
 # All flow from each airport leaves the airport, either through a hub or directly to another airport.
-mdl.addConstrs(x[i,j] + w[i,j] <= q[i][j] for i in range(0, Airport_number) for j in range(0, Airport_number) if i != j)
+mdl.addConstrs((x[i,j] + w[i,j] <= q[i][j] for i in range(0, Airport_number) for j in range(0, Airport_number) if i != j), name="FC")
 # There are only transfer passengers if neither of the two airports is the hub-airport.
 mdl.addConstrs(w[i,j] <= q[i][j] * g[i] * g[j] for i in range(0, Airport_number) for j in range(0, Airport_number) if i != j)
 # Capacity verification in each flight leg.
@@ -135,9 +135,10 @@ mdl.setObjective(quicksum(yields(i,j)*greatcircle(i,j)*(x[i,j]+0.9*w[i,j])-quick
 
 '''Solve'''
 mdl.write("myLP.lp")
-mdl.Params.MIPGap = 0.1
+mdl.Params.MIPGap = 0.001
 mdl.Params.TimeLimit = 30  # seconds
 mdl.optimize()
+mdl.write("MyS.JSON")
 solution = {}
 
 # Print all non-zero variables
