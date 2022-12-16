@@ -10,10 +10,11 @@ V = {1:550,2:820,3:850,4:350,5:480}                         # Speed of the aircr
 C = {1:45,2:70,3:150,4:20,5:48}                           # Number of seats
 R = {1:1500,2:3300,3:6300,4:400,5:1000}                      # Range [km]
 L = {1:1400,2:1600,3:1800,4:750,5:950}                      # Runway length required [m]
+G = {4:2130, 5:8216}                                               #Charge capacity
 LC = {1:15000,2:34000,3:80000,4:12000,5:22000}                  # Lease cost per week
 FC = {1:300,2:600,3:1250,4:90,5:120}                       # Fixed cost
 TC = {1:750,2:775,3:1400,4:750,5:750}                       # Time cost
-KC = {1:1,2:2,3:3.75,4:0,5:0}                           # Fuel cost
+KC = {1:1,2:2,3:3.75,4:0.07,5:0.07}                           # Fuel cost
 BE = {1:0,2:0,3:0,4:2130,5:8216}
 TAT = {1:25/60,2:35/60,3:45/60,4:20/60,5:25/60}                 # Turnaround time [hour]
 TATadd = {1:0,2:0,3:0,4:20/60,5:45/60}
@@ -32,7 +33,7 @@ Airports = ['Lira','LIRQ','LICJ','LIPZ','LIMF','LIBD','LIPX','LIEO','LICA','LICC
 Runway_length = [2208,1750,3326,3300,3300,3068,2745,2745,2414,2435,2800,3066,2012,2962,3000]
 Latitudes = [41.802425,43.808653,38.1824,45.5032,45.2004992,41.1366,45.395699,40.916668,38.906585,37.4673,44.535442,44.414165,40.884,43.616943,45.823]
 Longitudes = [12.602139,11.201225,13.100582,12.3512,7.643164094,16.7564,10.8885,9.5,16.243402,15.0658,11.288667,8.942184,14.2878,13.516667,13.485]
-Airport_number = 15
+Airport_number = 10
 q = [
 	[0, 402.2347489, 230.012667, 364.8365341, 138.6337931, 273.0681948, 354.4198523, 154.2959686, 192.4122892, 256.8981435, 419.4352245, 261.6076013, 449.6621454, 263.746491, 260.2622231],
 	[402.2347489, 0, 187.3063812, 400.1775639, 146.5638268, 224.5422125, 408.0447038, 133.4363918, 158.0212897, 213.4550833, 552.1595932, 293.8626455, 330.2435992, 251.4286183, 269.3458087],
@@ -88,10 +89,16 @@ def route_cost(airport1,airport2,aircraft_type):
     """
     fixed_cost = FC[aircraft_type]
     time_cost = TC[aircraft_type]*greatcircle(airport1,airport2)/V[aircraft_type]
-    fuel_cost = KC[aircraft_type]*1.42/1.5*greatcircle(airport1,airport2)
-    cost = fixed_cost + time_cost + fuel_cost
-    if airport1 == 0 or airport2 == 0:
-        cost = 0.7*cost
+    if aircraft_type in [1,2,3]:
+        fuel_cost = KC[aircraft_type]*1.42/1.5*greatcircle(airport1,airport2)
+    else:
+        fuel_cost = KC[aircraft_type]*G[aircraft_type]*greatcircle(airport1, airport2)/R[aircraft_type]
+    if airport1 == 0 and aircraft_type in [1,2,3]:
+        cost = 0.7*fixed_cost + time_cost + fuel_cost
+    elif airport1 == 0:
+        cost = 0.7 * (fixed_cost + time_cost) + fuel_cost
+    else:
+        cost =fixed_cost + time_cost + fuel_cost
     return cost
 
 def total_route_cost(route,aircraft_type):
