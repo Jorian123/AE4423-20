@@ -277,11 +277,11 @@ if __name__ == "__main__":
     mdl.setObjective(Revenue-Lease_cost-Travel_cost)
 
     '''Solve'''
-    mdl.write("LP_Formulation_Problem_1.lp")
+    mdl.write("LP_Formulation_Problem_2.lp")
     mdl.Params.MIPGap = 0.001
     mdl.Params.TimeLimit = 1800  # seconds
     mdl.optimize()
-    mdl.write("Solution_Problem_1.JSON")
+    mdl.write("Solution_Problem_2.JSON")
     solution = {}
 
     # Print all non-zero variables
