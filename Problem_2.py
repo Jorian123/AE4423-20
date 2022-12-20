@@ -8,7 +8,7 @@ import pandas as pd
 K = [1,2,3,4,5]                                # Types of aircraft
 V = {1:550,2:820,3:850,4:350,5:480}                         # Speed of the aircraft [km/h]
 C = {1:45,2:70,3:150,4:20,5:48}                           # Number of seats
-R = {1:1500,2:3300,3:6300,4:400,5:1000}                      # Range [km]
+Ra = {1:1500, 2:3300, 3:6300, 4:400, 5:1000}                      # Range [km]
 L = {1:1400,2:1600,3:1800,4:750,5:950}                      # Runway length required [m]
 G = {4:2130, 5:8216}                                               #Charge capacity
 LC = {1:15000,2:34000,3:80000,4:12000,5:22000}                  # Lease cost per week
@@ -92,13 +92,13 @@ def route_cost(airport1,airport2,aircraft_type):
     if aircraft_type in [1,2,3]:
         fuel_cost = KC[aircraft_type]*1.42/1.5*greatcircle(airport1,airport2)
     else:
-        fuel_cost = KC[aircraft_type]*G[aircraft_type]*greatcircle(airport1, airport2)/R[aircraft_type]
-    if airport1 == 0 and aircraft_type in [1,2,3]:
-        cost = 0.7*fixed_cost + time_cost + fuel_cost
-    elif airport1 == 0:
+        fuel_cost = KC[aircraft_type] * G[aircraft_type] * greatcircle(airport1, airport2) / Ra[aircraft_type]
+    if airport1 == 0 or airport2 == 0 and aircraft_type in [1,2,3]:
+        cost = 0.7*(fixed_cost + time_cost + fuel_cost)
+    elif airport1 == 0 or airport2 == 0:
         cost = 0.7 * (fixed_cost + time_cost) + fuel_cost
     else:
-        cost =fixed_cost + time_cost + fuel_cost
+        cost = fixed_cost + time_cost + fuel_cost
     return cost
 
 def total_route_cost(route,aircraft_type):
@@ -129,24 +129,24 @@ def turn_time(route,aircraft_type):
     """
     length = len(route)
     if aircraft_type == 1 or aircraft_type == 2 or aircraft_type == 3:
-        time = 1*TAT[aircraft_type]+(length-2)*TAT[aircraft_type]
+        time = 1.5*TAT[aircraft_type]+(length-2)*TAT[aircraft_type]
     if aircraft_type == 4 or aircraft_type == 5:
         time = (length-1)*TAT[aircraft_type]+TATadd[aircraft_type]
     return time
 
 "Generate possible routes"
-route_set_1 = []
-route_set_2 = []
+R1 = []
+R2 = []
 for i in range(Airport_number):
     for j in range(Airport_number):
         if i!=j and i!=0 and j!=0:
             ori = (0, i, j, 0)
-            route_set_2.append(ori)
+            R2.append(ori)
         elif i==j and i!=0:
             ori = (0, i, 0)
-            route_set_1.append(ori)
+            R1.append(ori)
 
-route_set = route_set_1 + route_set_2
+R = R1 + R2
 
 "generate subsequent and precedent nodes"
 route_sub_1 = []
@@ -154,7 +154,7 @@ route_pre_1 = []
 route_sub_2 = []
 route_pre_2 = []
 
-for route in route_set_1:
+for route in R1:
     dic1 = {}
     dic2 = {}
     dic1[route[0]] = [route[1],route[2]]
@@ -164,7 +164,7 @@ for route in route_set_1:
     route_sub_1.append(dic1)
     route_pre_1.append(dic2)
 
-for route in route_set_2:
+for route in R2:
     dic1 = {}
     dic2 = {}
     dic1[route[0]] = [route[1],route[2],route[3]]
@@ -179,30 +179,30 @@ route_sub = route_sub_1 + route_sub_2
 route_pre = route_pre_1 + route_pre_2
 
 
-route_index = range(len(route_set))
+route_index = range(len(R))
 '''Decision Variables'''
 # Flow between routes via the hub in number of passengers
-Transfer_flow = [(i,j,r,n) for r in range(len(route_set)) for n in range(len(route_set)) for i in range(Airport_number) for j in range(Airport_number)]
+Transfer_flow = [(i,j,r,n) for r in range(len(R)) for n in range(len(R)) for i in range(Airport_number) for j in range(Airport_number)]
 
 # Flow between airports in number of passengers
-Direct_flow = [(i,j,r) for r in range(len(route_set)) for i in range(Airport_number) for j in range(Airport_number)]
+Direct_flow = [(i,j,r) for r in range(len(R)) for i in range(Airport_number) for j in range(Airport_number)]
 
 # Flow between airports in number of flights
-Aircraft_flow = [(r,k) for k in range (1,len(K)+1) for r in range(len(route_set))]
+Aircraft_flow = [(r,k) for k in range (1,len(K)+1) for r in range(len(R))]
 
 # Total amount of aircraft between all types
 Aircraft_number = [i for i in range (1,len(K)+1)]
 
 
 "Generate Auxiliary parameters"
-Auxiliaries = {}
+delta = {}
 for flow in Direct_flow:
-    Auxiliaries[flow]=0
+    delta[flow]=0
 for r in route_index:
-    for i in set(route_set[r]):
+    for i in set(R[r]):
         for j in route_sub[r][i]:
             if i!=j:
-                Auxiliaries[i,j,r] = 1
+                delta[i, j, r] = 1
 
 if __name__ == "__main__":
     w = mdl.addVars(Transfer_flow, vtype=GRB.INTEGER, name="Hubflow")
@@ -217,22 +217,22 @@ if __name__ == "__main__":
     # Limit the direct flows to actual flows in routes
     mdl.addConstrs((quicksum(x[i,j,r] + quicksum(w[i,j,r,n] for n in route_index) for r in route_index) <= q[i][j] for i in range(Airport_number) for j in range(Airport_number)), name="DFC")
     # Eliminate direct flow paths not in the route
-    mdl.addConstrs(x[i,j,r] <= q[i][j]*Auxiliaries[i,j,r] for i in range(Airport_number) for j in range(Airport_number) for r in route_index)
+    mdl.addConstrs(x[i,j,r] <= q[i][j] * delta[i, j, r] for i in range(Airport_number) for j in range(Airport_number) for r in route_index)
     # Eliminate indirect flow paths not in the routes
-    mdl.addConstrs(w[i,j,r,n] <= q[i][j]*Auxiliaries[i,0,r]*Auxiliaries[0,j,n] for i in range(Airport_number) for j in range(Airport_number) for r in route_index for n in route_index)
+    mdl.addConstrs(w[i,j,r,n] <= q[i][j] * delta[i, 0, r] * delta[0, j, n] for i in range(Airport_number) for j in range(Airport_number) for r in route_index for n in route_index)
 
 
     """Aircraft utilization constraints"""
     # Limit aircraft usage to the assigned block time.
-    mdl.addConstrs((quicksum((route_distance(route_set[r])/V[k]+turn_time(route_set[r],k))*z[r,k] for r in route_index) <= BT*AC[k] for k in K), name= "AUC")
+    mdl.addConstrs((quicksum((route_distance(R[r]) / V[k] + turn_time(R[r], k)) * z[r, k] for r in route_index) <= BT * AC[k] for k in K), name="AUC")
 
     """Aircraft allocation constraints"""
     # Ensure the aircraft has the range to fly the route.
     for r in route_index:
-        route = route_set[r]
-        dis=route_distance(route)
+        route = R[r]
+        length=route_distance(route)
         for k in K:
-            if R[k] >= dis:
+            if Ra[k] >= length:
                 a = 10000
             else:
                 a = 0
@@ -243,37 +243,30 @@ if __name__ == "__main__":
     # From the hub node
     mdl.addConstrs(((quicksum(x[0,m,r] for m in route_sub[r][0]) + quicksum(w[p,m,n,r] for n in route_index for p in range(Airport_number) for m in route_sub[r][0])) <= quicksum(z[r,k] * C[k] * LF for k in K) for r in route_index), name="FCH-")
     # To the hub node
-    mdl.addConstrs(((quicksum(x[m,0,r] for m in route_pre[r][route_set[r][-2]]) + quicksum(w[m,p,r,n] for n in route_index for p in range(Airport_number) for m in route_pre[r][route_set[r][-2]])) <= quicksum(z[r,k] * C[k] * LF for k in K) for r in route_index), name="FC-H")
+    mdl.addConstrs(((quicksum(x[m,0,r] for m in route_pre[r][R[r][-2]]) + quicksum(w[m, p, r, n] for n in route_index for p in range(Airport_number) for m in route_pre[r][R[r][-2]])) <= quicksum(z[r, k] * C[k] * LF for k in K) for r in route_index), name="FC-H")
     # Between the spokes
 
-    mdl.addConstrs(((quicksum(x[route_sub[r][0][0],m,r] for m in route_sub[r][route_set[r][-2]])
-                     +quicksum(x[m,route_sub[r][0][1],r] for m in route_pre[r][route_set[r][1]])
+    mdl.addConstrs(((quicksum(x[route_sub[r][0][0],m,r] for m in route_sub[r][R[r][-2]])
+                     +quicksum(x[m,route_sub[r][0][1],r] for m in route_pre[r][R[r][1]])
                      +quicksum(w[p,route_sub[r][0][1],n,r] for n in route_index for p in range(Airport_number))
                      +quicksum(w[route_sub[r][0][0], p, r, n] for n in route_index for p in range(Airport_number))
                      )
-                    <= quicksum(z[r,k] * C[k] * LF for k in K) for r in route_index if len(route_set[r])>3), name="FCS")
+                    <= quicksum(z[r,k] * C[k] * LF for k in K) for r in route_index if len(R[r]) > 3), name="FCS")
 
-    # # Minimum required runway length for the aircraft type used on the route.
-    # for i in range(0,Airport_number):
-    #     for j in range(0,Airport_number):
-    #         if i!=j:
-    #             for k in K:
-    #                 if L[k] > Runway_length[i] or L[k] > Runway_length[j]:
-    #                     a = 0
-    #                 else:
-    #                     a = 10000
-    #                 mdl.addConstr(y[i,j,k] <= a)
+    # Minimum required runway length for the aircraft type used on the route.
+    for r in range(len(R)):
+        for k in K:
+            for airport in R[r]:
+                if L[k] > Runway_length[airport]:
+                    mdl.addConstr(z[r,k] <= 0, name="Runway")
+
 
     '''Objective Function'''
-
-    # mdl.setObjective(quicksum(yields(i,j)*greatcircle(i,j)*(x[i,j]+0.9*w[i,j])-quicksum(route_cost(i,j,k)*y[i,j,k] for k in K) for i in range(0,Airport_number) for j in range(0,Airport_number) if i!=j)-quicksum(z[k]*LC[k] for k in K))
-    # mdl.setObjective(quicksum(yields(i,j)*greatcircle(i,j)*(x[i,j]+0.9*w[i,j])-quicksum(route_cost(i,j,k)*y[i,j,k] for k in K) for i in range(0,Airport_number) for j in range(0,Airport_number) if i!=j)-quicksum(z[k]*LC[k] for k in K))
-
     # Parts that generate revenue
     Revenue = quicksum(yields(i,j)*greatcircle(i,j)*(x[i,j,r]+0.9*quicksum(w[i,j,r,n] for n in route_index)) for i in range(Airport_number) for j in range(Airport_number) for r in route_index)
-    # Parts that cost moneyyyyy
+    # Parts that cost money
     Lease_cost = quicksum(AC[k] * LC[k] for k in K)
-    Travel_cost = quicksum(total_route_cost(route_set[r],k)*z[r,k] for k in K for r in route_index)
+    Travel_cost = quicksum(total_route_cost(R[r], k) * z[r, k] for k in K for r in route_index)
     mdl.setObjective(Revenue-Lease_cost-Travel_cost)
 
     '''Solve'''
@@ -288,22 +281,4 @@ if __name__ == "__main__":
     for i in mdl.getVars():
         if i.x > 0:
             print("{} : {}".format(i.Varname,i.x))
-
-
-# Aircraftflowresult = np.zeros((15,15), dtype=tuple)
-#
-# for i,j,p in Aircraftflow:
-#
-#     for k in K:
-#         if k == 1:
-#             a = mdl.getVarByName("Aircraftflow[{},{},{}]".format(i,j,k)).x
-#         if k == 2:
-#             b = mdl.getVarByName("Aircraftflow[{},{},{}]".format(i,j,k)).x
-#         if k == 3:
-#             c = mdl.getVarByName("Aircraftflow[{},{},{}]".format(i,j,k)).x
-#     value = int(a),int(b),int(c)
-#     Aircraftflowresult[i,j]= value
-# print(Aircraftflowresult)
-# pd.DataFrame(Aircraftflowresult).to_csv('sample.csv')
-
 
