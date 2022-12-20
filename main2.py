@@ -183,16 +183,16 @@ route_index = range(len(route_set))
 '''Decision Variables'''
 # Flow between routes via the hub in number of passengers
 Transfer_flow = [(i,j,r,n) for r in range(len(route_set)) for n in range(len(route_set)) for i in range(Airport_number) for j in range(Airport_number)]
-
+w = mdl.addVars(Transfer_flow, vtype=GRB.INTEGER, name="Transferflow")
 # Flow between airports in number of passengers
 Direct_flow = [(i,j,r) for r in range(len(route_set)) for i in range(Airport_number) for j in range(Airport_number)]
-
+x = mdl.addVars(Direct_flow, vtype=GRB.INTEGER, name="Directflow")
 # Flow between airports in number of flights
 Aircraft_flow = [(r,k) for k in range (1,len(K)+1) for r in range(len(route_set))]
-
+z = mdl.addVars(Aircraft_flow, vtype=GRB.INTEGER, name="Aircraftflow")
 # Total amount of aircraft between all types
 Aircraft_number = [i for i in range (1,len(K)+1)]
-
+AC = mdl.addVars(Aircraft_number, vtype=GRB.INTEGER, name="Aircraftnumber")
 
 "Generate Auxiliary parameters"
 Auxiliaries = {}
@@ -204,90 +204,85 @@ for r in route_index:
             if i!=j:
                 Auxiliaries[i,j,r] = 1
 
-if __name__ == "__main__":
-    w = mdl.addVars(Transfer_flow, vtype=GRB.INTEGER, name="Hubflow")
-    x = mdl.addVars(Direct_flow, vtype=GRB.INTEGER, name="Directflow")
-    z = mdl.addVars(Aircraft_flow, vtype=GRB.INTEGER, name="Aircraftflow")
-    AC = mdl.addVars(Aircraft_number, vtype=GRB.INTEGER, name="Aircraftnumber")
 
-    mdl.modelSense = GRB.MAXIMIZE
+mdl.modelSense = GRB.MAXIMIZE
 
 
-    ''' Demand constraints'''
-    # Limit the direct flows to actual flows in routes
-    mdl.addConstrs((quicksum(x[i,j,r] + quicksum(w[i,j,r,n] for n in route_index) for r in route_index) <= q[i][j] for i in range(Airport_number) for j in range(Airport_number)), name="DFC")
-    # Eliminate direct flow paths not in the route
-    mdl.addConstrs(x[i,j,r] <= q[i][j]*Auxiliaries[i,j,r] for i in range(Airport_number) for j in range(Airport_number) for r in route_index)
-    # Eliminate indirect flow paths not in the routes
-    mdl.addConstrs(w[i,j,r,n] <= q[i][j]*Auxiliaries[i,0,r]*Auxiliaries[0,j,n] for i in range(Airport_number) for j in range(Airport_number) for r in route_index for n in route_index)
+''' Demand constraints'''
+# Limit the direct flows to actual flows in routes
+mdl.addConstrs((quicksum(x[i,j,r] + quicksum(w[i,j,r,n] for n in route_index) for r in route_index) <= q[i][j] for i in range(Airport_number) for j in range(Airport_number)), name="DFC")
+# Eliminate direct flow paths not in the route
+mdl.addConstrs(x[i,j,r] <= q[i][j]*Auxiliaries[i,j,r] for i in range(Airport_number) for j in range(Airport_number) for r in route_index)
+# Eliminate indirect flow paths not in the routes
+mdl.addConstrs(w[i,j,r,n] <= q[i][j]*Auxiliaries[i,0,r]*Auxiliaries[0,j,n] for i in range(Airport_number) for j in range(Airport_number) for r in route_index for n in route_index)
 
 
-    """Aircraft utilization constraints"""
-    # Limit aircraft usage to the assigned block time.
-    mdl.addConstrs((quicksum((route_distance(route_set[r])/V[k]+turn_time(route_set[r],k))*z[r,k] for r in route_index) <= BT*AC[k] for k in K), name= "AUC")
+"""Aircraft utilization constraints"""
+# Limit aircraft usage to the assigned block time.
+mdl.addConstrs((quicksum((route_distance(route_set[r])/V[k]+turn_time(route_set[r],k))*z[r,k] for r in route_index) <= BT*AC[k] for k in K), name= "AUC")
 
-    """Aircraft allocation constraints"""
-    # Ensure the aircraft has the range to fly the route.
-    for r in route_index:
-        route = route_set[r]
-        dis=route_distance(route)
-        for k in K:
-            if R[k] >= dis:
-                a = 10000
-            else:
-                a = 0
-            mdl.addConstr(z[r,k] <= a, name="RC{}{}".format(r,k))
+"""Aircraft allocation constraints"""
+# Ensure the aircraft has the range to fly the route.
+for r in route_index:
+    route = route_set[r]
+    dis=route_distance(route)
+    for k in K:
+        if R[k] >= dis:
+            a = 10000
+        else:
+            a = 0
+        mdl.addConstr(z[r,k] <= a, name="RC{}{}".format(r,k))
 
 
-    """Aircraft Flow constraints"""
-    # From the hub node
-    mdl.addConstrs(((quicksum(x[0,m,r] for m in route_sub[r][0]) + quicksum(w[p,m,n,r] for n in route_index for p in range(Airport_number) for m in route_sub[r][0])) <= quicksum(z[r,k] * C[k] * LF for k in K) for r in route_index), name="FCH-")
-    # To the hub node
-    mdl.addConstrs(((quicksum(x[m,0,r] for m in route_pre[r][route_set[r][-2]]) + quicksum(w[m,p,r,n] for n in route_index for p in range(Airport_number) for m in route_pre[r][route_set[r][-2]])) <= quicksum(z[r,k] * C[k] * LF for k in K) for r in route_index), name="FC-H")
-    # Between the spokes
+"""Aircraft Flow constraints"""
+# From the hub node
+mdl.addConstrs(((quicksum(x[0,m,r] for m in route_sub[r][0]) + quicksum(w[p,m,n,r] for n in route_index for p in range(Airport_number) for m in route_sub[r][0])) <= quicksum(z[r,k] * C[k] * LF for k in K) for r in route_index), name="FCH-")
+# To the hub node
+mdl.addConstrs(((quicksum(x[m,0,r] for m in route_pre[r][route_set[r][-2]]) + quicksum(w[m,p,r,n] for n in route_index for p in range(Airport_number) for m in route_pre[r][route_set[r][-2]])) <= quicksum(z[r,k] * C[k] * LF for k in K) for r in route_index), name="FC-H")
+# Between the spokes
 
-    mdl.addConstrs(((quicksum(x[route_sub[r][0][0],m,r] for m in route_sub[r][route_set[r][-2]])
-                     +quicksum(x[m,route_sub[r][0][1],r] for m in route_pre[r][route_set[r][1]])
-                     +quicksum(w[p,route_sub[r][0][1],n,r] for n in route_index for p in range(Airport_number))
-                     +quicksum(w[route_sub[r][0][0], p, r, n] for n in route_index for p in range(Airport_number))
-                     )
-                    <= quicksum(z[r,k] * C[k] * LF for k in K) for r in route_index if len(route_set[r])>3), name="FCS")
+mdl.addConstrs(((quicksum(x[route_sub[r][0][0],m,r] for m in route_sub[r][route_set[r][-2]])
+                 +quicksum(x[m,route_sub[r][0][1],r] for m in route_pre[r][route_set[r][1]])
+                 +quicksum(w[p,route_sub[r][0][1],n,r] for n in route_index for p in range(Airport_number))
+                 +quicksum(w[route_sub[r][0][0], p, r, n] for n in route_index for p in range(Airport_number))
+                 )
+                <= quicksum(z[r,k] * C[k] * LF for k in K) for r in route_index if len(route_set[r])>3), name="FCS")
 
-    # # Minimum required runway length for the aircraft type used on the route.
-    # for i in range(0,Airport_number):
-    #     for j in range(0,Airport_number):
-    #         if i!=j:
-    #             for k in K:
-    #                 if L[k] > Runway_length[i] or L[k] > Runway_length[j]:
-    #                     a = 0
-    #                 else:
-    #                     a = 10000
-    #                 mdl.addConstr(y[i,j,k] <= a)
+# # Minimum required runway length for the aircraft type used on the route.
+# for i in range(0,Airport_number):
+#     for j in range(0,Airport_number):
+#         if i!=j:
+#             for k in K:
+#                 if L[k] > Runway_length[i] or L[k] > Runway_length[j]:
+#                     a = 0
+#                 else:
+#                     a = 10000
+#                 mdl.addConstr(y[i,j,k] <= a)
 
-    '''Objective Function'''
+'''Objective Function'''
 
-    # mdl.setObjective(quicksum(yields(i,j)*greatcircle(i,j)*(x[i,j]+0.9*w[i,j])-quicksum(route_cost(i,j,k)*y[i,j,k] for k in K) for i in range(0,Airport_number) for j in range(0,Airport_number) if i!=j)-quicksum(z[k]*LC[k] for k in K))
-    # mdl.setObjective(quicksum(yields(i,j)*greatcircle(i,j)*(x[i,j]+0.9*w[i,j])-quicksum(route_cost(i,j,k)*y[i,j,k] for k in K) for i in range(0,Airport_number) for j in range(0,Airport_number) if i!=j)-quicksum(z[k]*LC[k] for k in K))
+# mdl.setObjective(quicksum(yields(i,j)*greatcircle(i,j)*(x[i,j]+0.9*w[i,j])-quicksum(route_cost(i,j,k)*y[i,j,k] for k in K) for i in range(0,Airport_number) for j in range(0,Airport_number) if i!=j)-quicksum(z[k]*LC[k] for k in K))
+# mdl.setObjective(quicksum(yields(i,j)*greatcircle(i,j)*(x[i,j]+0.9*w[i,j])-quicksum(route_cost(i,j,k)*y[i,j,k] for k in K) for i in range(0,Airport_number) for j in range(0,Airport_number) if i!=j)-quicksum(z[k]*LC[k] for k in K))
 
-    # Parts that generate revenue
-    Revenue = quicksum(yields(i,j)*greatcircle(i,j)*(x[i,j,r]+0.9*quicksum(w[i,j,r,n] for n in route_index)) for i in range(Airport_number) for j in range(Airport_number) for r in route_index)
-    # Parts that cost moneyyyyy
-    Lease_cost = quicksum(AC[k] * LC[k] for k in K)
-    Travel_cost = quicksum(total_route_cost(route_set[r],k)*z[r,k] for k in K for r in route_index)
-    mdl.setObjective(Revenue-Lease_cost-Travel_cost)
+# Parts that generate revenue
+Revenue = quicksum(yields(i,j)*greatcircle(i,j)*(x[i,j,r]+0.9*quicksum(w[i,j,r,n] for n in route_index)) for i in range(Airport_number) for j in range(Airport_number) for r in route_index)
+# Parts that cost moneyyyyy
+Lease_cost = quicksum(AC[k] * LC[k] for k in K)
+Travel_cost = quicksum(total_route_cost(route_set[r],k)*z[r,k] for k in K for r in route_index)
+mdl.setObjective(Revenue-Lease_cost-Travel_cost)
 
-    '''Solve'''
-    mdl.write("LP_Formulation_Problem_1.lp")
-    mdl.Params.MIPGap = 0.001
-    mdl.Params.TimeLimit = 30  # seconds
-    mdl.optimize()
-    mdl.write("Solution_Problem_1.JSON")
-    solution = {}
+'''Solve'''
+# mdl.write("myLP2.lp")
+mdl.Params.MIPGap = 0.01
+mdl.Params.TimeLimit = 1500 # seconds
+mdl.optimize()
+mdl.write("MyS2.JSON")
+solution = {}
 
-    # Print all non-zero variables
-    for i in mdl.getVars():
-        if i.x > 0:
-            print("{} : {}".format(i.Varname,i.x))
+# Print all non-zero variables
+for i in mdl.getVars():
+    if i.x > 0:
+        print("{} : {}".format(i.Varname,i.x))
 
 
 # Aircraftflowresult = np.zeros((15,15), dtype=tuple)
