@@ -28,6 +28,7 @@ for p in problem_number:
     "Calculate available seat kilometers"
     ASK = 0
     RPK = 0
+    CASK = 0
     if p == 1:
         for i in range(problem.Airport_number):
             for j in range(problem.Airport_number):
@@ -38,6 +39,10 @@ for p in problem_number:
                 for k in problem.K:
                     if 'Aircraftflow[{},{},{}]'.format(i,j,k) in Vars.keys():
                         ASK += Vars['Aircraftflow[{},{},{}]'.format(i,j,k)]*problem.C[k]*problem.greatcircle(i,j)
+                        CASK += Vars['Aircraftflow[{},{},{}]'.format(i,j,k)]*problem.route_cost(i,j,k)
+        for k in problem.K:
+            if "Aircraft number[{}]".format(k) in Vars.keys():
+                CASK += Vars["Aircraft number[{}]".format(k)]*problem.LC[k]
     else:
         for r in problem.route_index:
             for i in set(problem.R[r]):
@@ -50,8 +55,17 @@ for p in problem_number:
             for k in problem.K:
                 if 'Aircraftflow[{},{}]'.format(r,k) in Vars.keys():
                     ASK+= Vars['Aircraftflow[{},{}]'.format(r,k)]*problem.C[k]*problem.route_distance(problem.R[r])
+                    CASK += Vars['Aircraftflow[{},{}]'.format(r,k)]*problem.total_route_cost(problem.R[r],k)
+        for k in problem.K:
+            if "Aircraftnumber[{}]".format(k) in Vars.keys():
+                CASK += Vars["Aircraftnumber[{}]".format(k)]*problem.LC[k]
+    Profit = int(solution["SolutionInfo"]["ObjVal"])
     print("Problem {}:".format(p))
     print("ASK: {} [KM]".format(int(ASK)))
     print("RPK: {} [KM]".format(int(RPK)))
     print("Load factor: {}".format(RPK/ASK))
-    print("Profit {}".format(int(solution["SolutionInfo"]["ObjVal"])))
+    print("CASK: {}".format(int(CASK)))
+    print("CASK/ASK: {}".format(CASK/ASK))
+    print("Revenue-ASK: {}".format((Profit+CASK)/ASK))
+    print("Revenue-RPK: {}".format((Profit+CASK)/RPK))
+    print("Profit {}".format(Profit))

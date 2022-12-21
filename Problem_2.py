@@ -271,12 +271,13 @@ if __name__ == "__main__":
 
     '''Solve'''
     mdl.write("LP_Formulation_Problem_2.lp")
-    mdl.Params.MIPGap = 0.001
-    mdl.Params.TimeLimit = 1800  # seconds
+    mdl.Params.MIPGap = 0.01
+    mdl.Params.TimeLimit = 60  # seconds
     mdl.optimize()
     mdl.write("Solution_Problem_2.JSON")
     solution = {}
 
+    print(R)
     # Print all non-zero variables
     for i in mdl.getVars():
         if i.x > 0:

@@ -3,6 +3,8 @@ import pandas as pd
 import plotly.graph_objects as go
 import json
 
+
+
 group = 8  # Fill in your group number here
 airport_data = pd.read_csv('Group_' + str(group) + '_Airport_info.csv', encoding='unicode_escape', index_col=1)
 # demand_data = pd.read_csv('Group_'+str(group)+'_Demand.csv', encoding = 'unicode_escape',index_col=0)
@@ -14,12 +16,14 @@ airports = airport_data.index
 hub = airports[0]
 min_line_thick = 0.5
 scale_factor = 5
+Plot_create = False
+Table_create = True
 
 # Define which problem you want to be solved. Expects pre-generated solution
-problem_number = 2
+problem_number = 1
 problem = importlib.import_module("Problem_{}".format(problem_number))
 # Destination airport to print
-Destination = 1
+Destination = 12
 print('The hub of your network is', hub)
 
 if __name__ == "__main__":
@@ -53,11 +57,14 @@ if __name__ == "__main__":
                                 name="Hub"
                                 )
                   )
-    fig.update_layout(showlegend=True,
+    fig.update_layout(showlegend=False,
                       geo=dict(resolution=50, lataxis=dict(range=[36, 48], showgrid=True, dtick=3),
                                lonaxis=dict(range=[6, 20], showgrid=True, dtick=3)),
-                      legend=dict(yanchor="top", y=0.99, xanchor="right", x=0.715, bgcolor='rgba(0,0,0,0)')
+                      legend=dict(yanchor="top", y=0.99, xanchor="right", x=0.76, bgcolor='rgba(0,0,0,0)'),
+                      autosize=True,
+                      margin=dict(l=0, r=0, b=0, t=0)
                       )
+
 
     if problem_number == 1:
         Vars = {}
@@ -66,6 +73,7 @@ if __name__ == "__main__":
         total_flow = 0
         flow = 0
         hubflow = 0
+
         for i in range(len(airports)):
             if 'Directflow[{},{}]'.format(i, Destination) in Vars.keys():
                 total_flow += Vars['Directflow[{},{}]'.format(i, Destination)]
@@ -204,4 +212,5 @@ if __name__ == "__main__":
                         )
                     )
                     flow = 0
-    fig.show()
+    if Plot_create:
+        fig.show()

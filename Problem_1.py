@@ -8,7 +8,7 @@ import pandas as pd
 K = [1,2,3]                                     # Types of aircraft
 V = {1:550,2:820,3:850}                         # Speed of the aircraft [km/h]
 C = {1:45,2:70,3:150}                           # Number of seats
-R = {1:1500,2:3300,3:6300}                      # Range [km]
+Ra = {1:1500, 2:3300, 3:6300}                      # Range [km]
 L = {1:1400,2:1600,3:1800}                      # Runway length required [m]
 LC = {1:15000,2:34000,3:80000}                  # Lease cost per week
 FC = {1:300,2:600,3:1250}                       # Fixed cost
@@ -113,7 +113,7 @@ if __name__ == "__main__":
         for j in range(0,Airport_number):
             if i!=j:
                 for k in K:
-                    if R[k] >= greatcircle(i,j):
+                    if Ra[k] >= greatcircle(i, j):
                         a = 10000
                     else:
                         a = 0
@@ -146,20 +146,20 @@ if __name__ == "__main__":
         if i.x > 0 or i.x < 0:
             print("{} : {}".format(i.Varname, i.x))
 
-    # Aircraftflowresult = np.zeros((15,15), dtype=tuple)
+    Aircraftflowresult = np.zeros((15,15), dtype=tuple)
 
-    # for i,j,p in Aircraftflow:
-    #
-    #     for k in K:
-    #         if k == 1:
-    #             a = mdl.getVarByName("Aircraftflow[{},{},{}]".format(i,j,k)).x
-    #         if k == 2:
-    #             b = mdl.getVarByName("Aircraftflow[{},{},{}]".format(i,j,k)).x
-    #         if k == 3:
-    #             c = mdl.getVarByName("Aircraftflow[{},{},{}]".format(i,j,k)).x
-    #     value = int(a),int(b),int(c)
-    #     Aircraftflowresult[i,j]= value
-    # print(Aircraftflowresult)
-    # pd.DataFrame(Aircraftflowresult).to_csv('sample.csv')
+    for i,j,p in Aircraftflow:
+
+        for k in K:
+            if k == 1:
+                a = mdl.getVarByName("Aircraftflow[{},{},{}]".format(i,j,k)).x
+            if k == 2:
+                b = mdl.getVarByName("Aircraftflow[{},{},{}]".format(i,j,k)).x
+            if k == 3:
+                c = mdl.getVarByName("Aircraftflow[{},{},{}]".format(i,j,k)).x
+        value = int(a),int(b),int(c)
+        Aircraftflowresult[i,j]= value
+    print(Aircraftflowresult)
+    pd.DataFrame(Aircraftflowresult).to_csv('sample.csv')
 
 
